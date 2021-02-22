@@ -11,11 +11,9 @@ import (
 	"github.com/labstack/echo"
 	"github.com/spf13/viper"
 
-	_articleHttpDelivery "github.com/bxcodec/go-clean-arch/article/delivery/http"
-	_articleHttpDeliveryMiddleware "github.com/bxcodec/go-clean-arch/article/delivery/http/middleware"
-	_articleRepo "github.com/bxcodec/go-clean-arch/article/repository/mysql"
-	_articleUcase "github.com/bxcodec/go-clean-arch/article/usecase"
-	_authorRepo "github.com/bxcodec/go-clean-arch/author/repository/mysql"
+	"github.com/bxcodec/go-clean-arch/article"
+	"github.com/bxcodec/go-clean-arch/author"
+	"github.com/bxcodec/go-clean-arch/middleware"
 )
 
 func init() {
@@ -59,14 +57,16 @@ func main() {
 	}()
 
 	e := echo.New()
-	middL := _articleHttpDeliveryMiddleware.InitMiddleware()
+	middL := middleware.InitMiddleware()
 	e.Use(middL.CORS)
-	authorRepo := _authorRepo.NewMysqlAuthorRepository(dbConn)
-	ar := _articleRepo.NewMysqlArticleRepository(dbConn)
 
+	authorRepo := author.NewRepository(dbConn)
+	articleRepo := article.NewRepository(dbConn)
 	timeoutContext := time.Duration(viper.GetInt("context.timeout")) * time.Second
-	au := _articleUcase.NewArticleUsecase(ar, authorRepo, timeoutContext)
-	_articleHttpDelivery.NewArticleHandler(e, au)
+
+	articleService := article.NewService(articleRepo, authorRepo, timeoutContext)
+
+	article.RegisterHandler(e, articleService)
 
 	log.Fatal(e.Start(viper.GetString("server.address")))
 }
